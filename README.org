@@ -1,0 +1,127 @@
+#+TITLE: Propertized Text to SVG
+#+AUTHOR: Richie Kirchofer
+
+* TL;DR
+
+This package provides functions to convert an Emacs string with text properties
+(i.e. faces) into a standalone SVG image, preserving the original colors and
+styling.
+
+* Installation
+
+1. Clone this repository or download =propertized-text-to-svg.el=.
+2. Place the file in a directory that is part of your Emacs =load-path=.
+3. Add the following to your Emacs configuration:
+
+   #+BEGIN_SRC emacs-lisp :results none
+   (require 'propertized-text-to-svg)
+   #+END_SRC
+
+* Features
+
+- *Convert Propertized Strings*: Turns any string with a =face= text property into an SVG.
+- *Preserve Colors*: Accurately captures the foreground color from the applied face.
+- *Fallback Gracefully*: If a face has no foreground color or if a segment of text
+  is unpropertized, it correctly falls back to the theme's default text color.
+- *Customizable*: The underlying SVG data structure is exposed, allowing for
+  further manipulation before rendering.
+- *Simple API*: Generate an SVG with a single function call: =(propertized-text-to-svg "...")=.
+
+* Examples & Usage
+
+#+BEGIN_SRC emacs-lisp :results none
+;; Ensure the package is loaded. Adjust path if necessary.
+(load-file "propertized-text-to-svg.el")
+
+;; Define custom faces for the examples.
+(defface ptts-example-red '((t (:foreground "firebrick"))) "Red face for examples.")
+(defface ptts-example-green '((t (:foreground "darkgreen"))) "Green face for examples.")
+(defface ptts-example-blue '((t (:foreground "steelblue"))) "Blue face for examples.")
+(defface ptts-example-no-fg '((t (:background "lightgray"))) "Face with no foreground.")
+
+;; Create the assets directory.
+(make-directory "./assets" t)
+#+END_SRC
+
+*1. Basic Two-Color String*
+
+This shows a simple string with two distinct faces applied.
+
+#+BEGIN_SRC emacs-lisp :results none
+(with-temp-file "./assets/basic-example.svg"
+  (insert (propertized-text-to-svg
+           (concat (propertize "Hello, " 'face 'ptts-example-red)
+                   (propertize "World!" 'face 'ptts-example-blue)))))
+#+END_SRC
+
+[[file:./assets/basic-example.svg]]
+
+*2. String with Unpropertized Segment*
+
+This example includes a segment with no face property, which falls back to the
+default foreground color of your current theme.
+
+#+BEGIN_SRC emacs-lisp :results none
+(with-temp-file "./assets/unpropertized-segment.svg"
+  (insert (propertized-text-to-svg
+           (concat (propertize "Styled, " 'face 'ptts-example-green)
+                   "Default, "
+                   (propertize "Styled." 'face 'ptts-example-red)))))
+#+END_SRC
+
+[[file:./assets/unpropertized-segment.svg]]
+
+*3. Simulating a Git Diff*
+
+Here, we use standard faces like =error= and =success= to create a diff-like output.
+
+#+BEGIN_SRC emacs-lisp :results none
+(with-temp-file "./assets/diff-example.svg"
+  (insert (propertized-text-to-svg
+           (concat (propertize "removed -10" 'face 'error)
+                   (propertize " added +25" 'face 'success)))))
+#+END_SRC
+
+[[file:./assets/diff-example.svg]]
+
+*4. Face Without a Foreground Color*
+
+This demonstrates the fallback mechanism when a face is applied but lacks a =:foreground= attribute.
+
+#+BEGIN_SRC emacs-lisp :results none
+(with-temp-file "./assets/no-foreground-fallback.svg"
+  (insert (propertized-text-to-svg
+           (propertize "Fallback Color" 'face 'ptts-example-no-fg))))
+#+END_SRC
+
+[[file:./assets/no-foreground-fallback.svg]]
+
+*5. Plain String*
+
+A completely unpropertized string is rendered using the default color.
+
+#+BEGIN_SRC emacs-lisp :results none
+(with-temp-file "./assets/plain-string.svg"
+  (insert (propertized-text-to-svg "Just plain text.")))
+#+END_SRC
+
+[[file:./assets/plain-string.svg]]
+
+* License
+
+Copyright (C) 2025 Richie Kirchofer
+
+SPDX-License-Identifier: GPL-3.0-or-later
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.

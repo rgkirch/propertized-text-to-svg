@@ -1,0 +1,14 @@
+* filter=plain_header
+*.el filter=lisp_header
+*.lisp filter=lisp_header
+*.clj filter=lisp_header
+*.py filter=hash_header
+*.sh filter=hash_header
+*.rb filter=hash_header
+*.c filter=slash_header
+*.h filter=slash_header
+*.cpp filter=slash_header
+*.java filter=slash_header
+*.js filter=slash_header
+*.rs filter=slash_header
+LICENSE filter=license_file
