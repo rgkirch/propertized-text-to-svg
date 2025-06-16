@@ -48,8 +48,12 @@ This is the core conversion logic."
                ;; fall back to the default foreground color.
                (color (if (or (not face-color) (eq face-color 'unspecified))
                           (face-attribute 'default :foreground nil t)
-                        face-color)))
-          (push `(tspan ((fill . ,color)) ,segment-text) tspans)
+                        face-color))
+               ;; Sanitize the color string to remove spaces for SVG compatibility.
+               (svg-color (if (stringp color)
+                              (replace-regexp-in-string " " "" color)
+                            color)))
+          (push `(tspan ((fill . ,svg-color)) ,segment-text) tspans)
           (setq pos segment-end))))
     (nreverse tspans)))
 

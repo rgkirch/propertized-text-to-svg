@@ -15,6 +15,8 @@
 (defface test-face-red   '((t (:foreground "red")))    "A test face with red foreground.")
 (defface test-face-blue  '((t (:foreground "blue")))   "A test face with blue foreground.")
 (defface test-face-no-fg '((t (:background "yellow"))) "A test face with no foreground color.")
+(defface test-face-dark-green '((t (:foreground "dark green"))) "A test face with a space in the color name.")
+
 
 (ert-deftest ptts-basic-propertized-string-test ()
   "Test a standard string with two different faces."
@@ -40,7 +42,7 @@
          (default-color (face-attribute 'default :foreground)))
     (should (equal tspans
                    `((tspan ((fill . "red")) "Red")
-                     (tspan ((fill . ,default-color)) "Default")
+                     (tspan ((fill . ,(replace-regexp-in-string " " "" default-color))) "Default")
                      (tspan ((fill . "blue")) "Blue"))))))
 
 (ert-deftest ptts-fully-unpropertized-string-test ()
@@ -50,7 +52,7 @@
          (tspans (cddr (caddr svg-data)))
          (default-color (face-attribute 'default :foreground)))
     (should (equal tspans
-                   `((tspan ((fill . ,default-color)) "Just plain text"))))))
+                   `((tspan ((fill . ,(replace-regexp-in-string " " "" default-color))) "Just plain text"))))))
 
 (ert-deftest ptts-face-with-no-foreground-test ()
   "Test that a face missing a :foreground attribute falls back to the default."
@@ -59,7 +61,7 @@
          (tspans (cddr (caddr svg-data)))
          (default-color (face-attribute 'default :foreground)))
     (should (equal tspans
-                   `((tspan ((fill . ,default-color)) "Test"))))))
+                   `((tspan ((fill . ,(replace-regexp-in-string " " "" default-color))) "Test"))))))
 
 (ert-deftest ptts-empty-string-test ()
   "Test that an empty string produces an empty list of tspans."
@@ -68,6 +70,14 @@
          ;; The body of the `text` element should be empty for an empty string.
          (tspans (cddr (caddr svg-data))))
     (should (null tspans))))
+
+(ert-deftest ptts-multi-word-color-name-test ()
+  "Test that a color name with spaces is correctly sanitized for SVG."
+  (let* ((p-string (propertize "Green Text" 'face 'test-face-dark-green))
+         (svg-data (propertized-text-to-svg-data p-string))
+         (tspans (cddr (caddr svg-data))))
+    (should (equal tspans
+                   '((tspan ((fill . "darkgreen")) "Green Text"))))))
 
 (provide 'propertized-text-to-svg-tests)
 
