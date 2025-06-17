@@ -8,7 +8,7 @@
 ;; Homepage: https://github.com/rgkirch/propertized-text-to-svg
 ;; Keywords: svg, faces, text, images, conversion
 
-;; Package-Version: 0.6
+;; Package-Version: 0.7
 ;; Package-Requires: ((emacs "29.1") svg color cl-lib)
 
 ;; <<GPL-3.0>>
@@ -21,6 +21,10 @@
 ;; from the string's faces, making it ideal for creating images of
 ;; code snippets or for use in modelines and UIs where dynamic,
 ;; styled text-as-an-image is desired.
+;;
+;; It correctly handles anonymous faces and complex face properties by
+;; recursively resolving face inheritance to determine the final, on-screen
+;; appearance.
 ;;
 ;; The primary functions are `propertized-text-to-svg-data`, which
 ;; produces the raw SVG data structure, and `propertized-text-to-svg`,
@@ -38,27 +42,77 @@
   :type 'integer
   :group 'propertized-text-to-svg)
 
-(defun propertized-text-to-svg--get-face-attributes (face)
-  "Return an alist of SVG style attributes for the given Emacs FACE.
-This function correctly determines the final, effective attributes
-by respecting the full face inheritance chain."
-  (let ((attrs '())
-        (decorations '()))
+(defun propertized-text-to-svg--resolve-face (face)
+  "Return a resolved plist of attributes for FACE.
+FACE can be a named face symbol (e.g., 'font-lock-warning-face),
+a list of faces (e.g., '(face-a face-b)), or an anonymous face
+plist (e.g., '(:inherit error :weight bold)).  Correctly
+handles single and multiple inheritance."
+  (cond
+   ;; Case 1: FACE is a named symbol.
+   ((symbolp face)
+    (cl-loop for (attr) in custom-face-attributes
+             for value = (face-attribute face attr nil 'default)
+             when (and (not (eq attr :inherit))
+                       value
+                       (not (eq value 'unspecified)))
+             collect attr and collect value))
 
-    ;; Get the final, effective values for all attributes by resolving
-    ;; inheritance all the way to the `default' face.
-    (let* ((fg-name (face-attribute face :foreground nil 'default))
-           (weight  (face-attribute face :weight nil 'default))
-           (slant   (face-attribute face :slant nil 'default))
-           (underline (face-attribute face :underline nil 'default))
-           (overline (face-attribute face :overline nil 'default))
-           (strike-through (face-attribute face :strike-through nil 'default)))
+   ;; Case 2: FACE is a list.
+   ((consp face)
+    (if (keywordp (car-safe face))
+        ;; It's an anonymous face plist, e.g., '(:inherit foo :weight bold)
+        (let* ((parents (plist-get face :inherit))
+               (parent-attrs
+                (cond
+                 ;; No inheritance
+                 ((null parents) '())
+                 ;; Single inheritance
+                 ((symbolp parents) (propertized-text-to-svg--resolve-face parents))
+                 ;; Multiple inheritance (a list of faces)
+                 ((consp parents)
+                  (let ((merged-attrs '()))
+                    ;; Iterate through parents. Attributes from later faces
+                    ;; in the list take precedence.
+                    (dolist (p parents)
+                      (setq merged-attrs (append (propertized-text-to-svg--resolve-face p) merged-attrs)))
+                    merged-attrs))))
+               ;; Get the anonymous face's own specific attributes
+               (own-attrs
+                (cl-loop for (prop val) on face by #'cddr
+                         unless (eq prop :inherit)
+                         collect prop and collect val)))
+          ;; Merge, with own-attrs taking highest precedence.
+          (append own-attrs parent-attrs))
+      ;; It's a list of faces, e.g., '(face-a face-b)
+      (let ((merged-attrs '()))
+        ;; Iterate through faces. Attributes from later faces
+        ;; in the list take precedence.
+        (dolist (p face)
+          (setq merged-attrs (append (propertized-text-to-svg--resolve-face p) merged-attrs)))
+        merged-attrs)))
+
+   ;; Case 3: Invalid input.
+   (t
+    (error "Invalid face specifier: %S" face))))
+
+(defun propertized-text-to-svg--get-face-attributes (face)
+  "Return an alist of SVG style attributes for the given Emacs FACE."
+  (let ((attrs '())
+        (decorations '())
+        (resolved-attrs (propertized-text-to-svg--resolve-face face)))
+
+    (let* ((fg-name (plist-get resolved-attrs :foreground))
+           (weight  (plist-get resolved-attrs :weight))
+           (slant   (plist-get resolved-attrs :slant))
+           (underline (plist-get resolved-attrs :underline))
+           (overline (plist-get resolved-attrs :overline))
+           (strike-through (plist-get resolved-attrs :strike-through)))
 
       ;; Foreground Color
       (let* ((svg-color (when (stringp fg-name)
                           (let ((rgb (color-name-to-rgb fg-name)))
                             (when rgb
-                              ;; Force 6-digit hex format for consistency.
                               (apply #'color-rgb-to-hex (append rgb '(2))))))))
         (push `(fill . ,(or svg-color "#000000")) attrs))
 
@@ -84,14 +138,12 @@ by respecting the full face inheritance chain."
   (when (> (length p-string) 0)
     (cl-loop for (beg . end) being the intervals of p-string
              for segment-text = (substring-no-properties p-string beg end)
-             for face = (or (get-text-property beg 'face p-string) 'default)
-             for svg-attrs = (propertized-text-to-svg--get-face-attributes face)
+             for raw-face = (or (get-text-property beg 'face p-string) 'default)
+             for svg-attrs = (propertized-text-to-svg--get-face-attributes raw-face)
              collect `(tspan ,svg-attrs ,segment-text))))
 
 (defun propertized-text-to-svg--create-svg-element (body p-string)
-  "Wrap a BODY s-expression in a top-level `svg` element.
-Calculates width and height from the P-STRING's pixel metrics
-and sets the background color."
+  "Wrap a BODY s-expression in a top-level `svg` element."
   (let* ((width (+ (string-pixel-width p-string) propertized-text-to-svg-padding))
          (height (+ (window-font-height) (/ propertized-text-to-svg-padding 2)))
          (bg-name (face-attribute 'default :background nil 'default))
@@ -100,13 +152,11 @@ and sets the background color."
                    "#ffffff")))
     `(svg ((width . ,width) (height . ,height) (version . "1.1")
            (xmlns . "http://www.w3.org/2000/svg"))
-          ;; Background rectangle
           (rect ((x "0") (y "0") (width "100%") (height "100%") (fill . ,bg-hex)))
           ,body)))
 
 (defun propertized-text-to-svg-data (p-string)
-  "Convert a propertized string P-STRING into an SVG s-expression.
-This function composes helper functions to build the SVG data."
+  "Convert a propertized string P-STRING into an SVG s-expression."
   (let* ((tspans (propertized-text-to-svg--to-tspans p-string))
          (font-family (or (face-attribute 'default :family nil 'default) "monospace"))
          (font-spec (face-attribute 'default :font nil 'default))
@@ -124,10 +174,7 @@ This function composes helper functions to build the SVG data."
     (propertized-text-to-svg--create-svg-element text-element p-string)))
 
 (defun propertized-text-to-svg (p-string &optional buffer)
-  "Generate an SVG XML string from a propertized string P-STRING.
-This is a convenience wrapper that calls `propertized-text-to-svg-data`
-to build the SVG structure and then uses `svg-print` to render
-it as an XML string."
+  "Generate an SVG XML string from a propertized string P-STRING."
   (if buffer
       (with-current-buffer buffer
         (svg-print (propertized-text-to-svg-data p-string)))
