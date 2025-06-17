@@ -47,7 +47,7 @@ styling.
 
 This shows a simple string with two distinct faces applied.
 
-#+BEGIN_SRC emacs-lisp :results value file :file ./assets/basic-example.svg
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/basic-example.svg
 (propertized-text-to-svg
  (concat (propertize "Hello, " 'face 'ptts-example-red)
          (propertize "World!" 'face 'ptts-example-blue)))
@@ -107,6 +107,7 @@ A completely unpropertized string is rendered using the default color.
 #+RESULTS:
 [[file:./assets/plain-string.svg]]
 
+* See [[https://github.com/rgkirch/my-emacs-packages][my other emacs packages]]
 * License
 
 Copyright (C) 2025 Richie Kirchofer
@@ -125,3 +126,4 @@ details.
 
 You should have received a copy of the GNU General Public License along with
 this program. If not, see <https://www.gnu.org/licenses/>.
+
