@@ -14,20 +14,35 @@
 (require 'color)
 (require 'cl-lib)
 
-(defface test-face-red   '((t (:foreground "red")))    "A test face with red foreground.")
-(defface test-face-blue  '((t (:foreground "blue")))   "A test face with blue foreground.")
-(defface test-face-no-fg '((t (:background "yellow"))) "A test face with no foreground color.")
-(defface test-face-dark-green '((t (:foreground "dark green"))) "A test face with a space in the color name.")
+(defface test-face-red   '((t (:foreground "red")))
+  "A test face with red foreground.")
+(defface test-face-blue  '((t (:foreground "blue")))
+  "Blue.")
+(defface test-face-light-green '((t (:foreground "light green"
+                                     :slant italic)))
+  "Light green and italic.")
+(defface test-face-no-fg '((t (:background "yellow")))
+  "A test face with no foreground color.")
+(defface test-face-orange '((t (:foreground "orange"
+                                :background "purple")))
+  "Orange foreground and purple background.")
 
 (ert-deftest ptts-basic-propertized-string-test ()
   "Test a standard string with two different faces."
-  (let* ((p-string (concat (propertize "Hello" 'face 'test-face-red)
-                           (propertize "World" 'face 'test-face-blue)))
+  (let* ((p-string (concat (propertize "Hello" 'face 'test-face-orange)
+                           "World"
+                           (propertize "!" 'face 'test-face-light-green)))
          (svg-data (propertized-text-to-svg-data p-string))
          (tspans (cddr (cadddr svg-data))))
-    (should (equal (length tspans) 2))
-    (should (equal (cdr (assoc 'fill (cadr (car tspans)))) "#ff0000"))
-    (should (equal (cdr (assoc 'fill (cadr (cadr tspans)))) "#0000ff"))))
+    (should (equal tspans
+                   '((tspan
+                      ((fill . "#ffa500") (text-decoration . "line-through overline underline"))
+                      "Hello")
+                     (tspan ((fill . "#bbc2cf")) "World")
+                     (tspan
+                      ((fill . "#90ee90") (font-style . "italic")
+                       (text-decoration . "line-through overline underline"))
+                      "!"))))))
 
 (ert-deftest ptts-string-with-unpropertized-segment-test ()
   "Test a string containing a segment with no face property."
