@@ -8,7 +8,7 @@
 ;; Homepage: https://github.com/rgkirch/propertized-text-to-svg
 ;; Keywords: svg, faces, text, images, conversion
 
-;; Package-Version: 0.5
+;; Package-Version: 0.6
 ;; Package-Requires: ((emacs "29.1") svg color cl-lib)
 
 ;; <<GPL-3.0>>
@@ -39,41 +39,43 @@
   :group 'propertized-text-to-svg)
 
 (defun propertized-text-to-svg--get-face-attributes (face)
-  "Return an alist of SVG style attributes for the given Emacs FACE."
+  "Return an alist of SVG style attributes for the given Emacs FACE.
+This function correctly determines the final, effective attributes
+by respecting the full face inheritance chain."
   (let ((attrs '())
-        (decorations '())
-        (default-face 'default))
+        (decorations '()))
 
-    ;; Foreground Color
-    (let* ((fg-name (or (face-attribute face :foreground nil t)
-                        (face-attribute default-face :foreground nil t)))
-           (color-name (if (or (not fg-name) (eq fg-name 'unspecified))
-                           (face-attribute default-face :foreground nil t)
-                         fg-name))
-           (svg-color (when (stringp color-name)
-                        (let ((rgb (color-name-to-rgb color-name)))
-                          (when rgb
-                            ;; Force 6-digit hex format for consistency.
-                            (apply #'color-rgb-to-hex (append rgb '(2))))))))
-      (push `(fill . ,(or svg-color "#000000")) attrs))
+    ;; Get the final, effective values for all attributes by resolving
+    ;; inheritance all the way to the `default' face.
+    (let* ((fg-name (face-attribute face :foreground nil 'default))
+           (weight  (face-attribute face :weight nil 'default))
+           (slant   (face-attribute face :slant nil 'default))
+           (underline (face-attribute face :underline nil 'default))
+           (overline (face-attribute face :overline nil 'default))
+           (strike-through (face-attribute face :strike-through nil 'default)))
 
-    ;; Font Weight
-    (let ((weight (face-attribute face :weight nil t)))
+      ;; Foreground Color
+      (let* ((svg-color (when (stringp fg-name)
+                          (let ((rgb (color-name-to-rgb fg-name)))
+                            (when rgb
+                              ;; Force 6-digit hex format for consistency.
+                              (apply #'color-rgb-to-hex (append rgb '(2))))))))
+        (push `(fill . ,(or svg-color "#000000")) attrs))
+
+      ;; Font Weight
       (when (memq weight '(bold semibold))
-        (push '(font-weight . "bold") attrs)))
+        (push '(font-weight . "bold") attrs))
 
-    ;; Font Style
-    (let ((slant (face-attribute face :slant nil t)))
+      ;; Font Style
       (when (memq slant '(italic oblique))
-        (push '(font-style . "italic") attrs)))
+        (push '(font-style . "italic") attrs))
 
-    ;; Text Decoration
-    (when (face-attribute face :underline nil t) (push "underline" decorations))
-    (when (face-attribute face :overline nil t) (push "overline" decorations))
-    (when (face-attribute face :strike-through nil t) (push "line-through" decorations))
-    (when decorations
-      (push `(text-decoration . ,(string-join decorations " ")) attrs))
-
+      ;; Text Decoration
+      (when underline (push "underline" decorations))
+      (when overline (push "overline" decorations))
+      (when strike-through (push "line-through" decorations))
+      (when decorations
+        (push `(text-decoration . ,(string-join decorations " ")) attrs)))
     (nreverse attrs)))
 
 
@@ -92,7 +94,7 @@ Calculates width and height from the P-STRING's pixel metrics
 and sets the background color."
   (let* ((width (+ (string-pixel-width p-string) propertized-text-to-svg-padding))
          (height (+ (window-font-height) (/ propertized-text-to-svg-padding 2)))
-         (bg-name (face-attribute 'default :background nil t))
+         (bg-name (face-attribute 'default :background nil 'default))
          (bg-hex (if (stringp bg-name)
                      (apply #'color-rgb-to-hex (append (color-name-to-rgb bg-name) '(2)))
                    "#ffffff")))
@@ -106,9 +108,9 @@ and sets the background color."
   "Convert a propertized string P-STRING into an SVG s-expression.
 This function composes helper functions to build the SVG data."
   (let* ((tspans (propertized-text-to-svg--to-tspans p-string))
-         (font-family (or (face-attribute 'default :family) "monospace"))
-         (font-spec (face-attribute 'default :font))
-         (font-size (or (font-get font-spec :size) 16))
+         (font-family (or (face-attribute 'default :family nil 'default) "monospace"))
+         (font-spec (face-attribute 'default :font nil 'default))
+         (font-size (or (and font-spec (font-get font-spec :size)) 16))
          (text-element
           `(text
             ((font-family . ,font-family)
