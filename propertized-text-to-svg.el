@@ -9,7 +9,7 @@
 ;; Keywords: svg, faces, text, images, conversion
 
 ;; Package-Version: 0.7
-;; Package-Requires: ((emacs "29.1") svg color cl-lib)
+;; Package-Requires: ((emacs "29.1"))
 
 ;; <<GPL-3.0>>
 
@@ -33,9 +33,11 @@
 ;;; Code:
 
 (require 'svg)
+(require 'map)
 (require 'subr-x)
 (require 'color)
 (require 'cl-lib)
+(require 'resolve-face)
 
 (defcustom propertized-text-to-svg-padding 10
   "The amount of padding in pixels around the text in the SVG."
@@ -43,98 +45,104 @@
   :group 'propertized-text-to-svg)
 
 (defun propertized-text-to-svg--resolve-face (face)
-  "Return a resolved plist of attributes for FACE.
-FACE can be a named face symbol (e.g., 'font-lock-warning-face),
-a list of faces (e.g., '(face-a face-b)), or an anonymous face
-plist (e.g., '(:inherit error :weight bold)).  Correctly
-handles single and multiple inheritance."
-  (cond
-   ;; Case 1: FACE is a named symbol.
-   ((symbolp face)
-    (cl-loop for (attr) in custom-face-attributes
-             for value = (face-attribute face attr nil 'default)
-             when (and (not (eq attr :inherit))
-                       value
-                       (not (eq value 'unspecified)))
-             collect attr and collect value))
+  "Return alist of symbols for use with `let-alist' representing FACE attributes."
+  (resolve-face-attributes-as-alist-of-symbols face nil 'default))
 
-   ;; Case 2: FACE is a list.
-   ((consp face)
-    (if (keywordp (car-safe face))
-        ;; It's an anonymous face plist, e.g., '(:inherit foo :weight bold)
-        (let* ((parents (plist-get face :inherit))
-               (parent-attrs
-                (cond
-                 ;; No inheritance
-                 ((null parents) '())
-                 ;; Single inheritance
-                 ((symbolp parents) (propertized-text-to-svg--resolve-face parents))
-                 ;; Multiple inheritance (a list of faces)
-                 ((consp parents)
-                  (let ((merged-attrs '()))
-                    ;; Iterate through parents. Attributes from later faces
-                    ;; in the list take precedence.
-                    (dolist (p parents)
-                      (setq merged-attrs (append (propertized-text-to-svg--resolve-face p) merged-attrs)))
-                    merged-attrs))))
-               ;; Get the anonymous face's own specific attributes
-               (own-attrs
-                (cl-loop for (prop val) on face by #'cddr
-                         unless (eq prop :inherit)
-                         collect prop and collect val)))
-          ;; Merge, with own-attrs taking highest precedence.
-          (append own-attrs parent-attrs))
-      ;; It's a list of faces, e.g., '(face-a face-b)
-      (let ((merged-attrs '()))
-        ;; Iterate through faces. Attributes from later faces
-        ;; in the list take precedence.
-        (dolist (p face)
-          (setq merged-attrs (append (propertized-text-to-svg--resolve-face p) merged-attrs)))
-        merged-attrs)))
-
-   ;; Case 3: Invalid input.
-   (t
-    (error "Invalid face specifier: %S" face))))
+(defun propertized-text-to-svg--color-name-to-rgb-hex (color-name)
+  "Convert COLOR-NAME to hex format compatible with svg."
+  (apply #'color-rgb-to-hex (append (color-name-to-rgb color-name) '(2))))
 
 (defun propertized-text-to-svg--get-face-attributes (face)
-  "Return an alist of SVG style attributes for the given Emacs FACE."
-  (let ((attrs '())
-        (decorations '())
-        (resolved-attrs (propertized-text-to-svg--resolve-face face)))
+  "Return an alist of SVG presentation attributes for the given emacs FACE.
 
-    (let* ((fg-name (plist-get resolved-attrs :foreground))
-           (weight  (plist-get resolved-attrs :weight))
-           (slant   (plist-get resolved-attrs :slant))
-           (underline (plist-get resolved-attrs :underline))
-           (overline (plist-get resolved-attrs :overline))
-           (strike-through (plist-get resolved-attrs :strike-through)))
+This function translates the resolved attributes of FACE into a list of
+cons cells, where each cell is `(CSS-PROPERTY . VALUE)`, suitable for
+styling an SVG `<text>` element.
 
-      ;; Foreground Color
-      (let* ((svg-color (when (stringp fg-name)
-                          (let ((rgb (color-name-to-rgb fg-name)))
-                            (when rgb
-                              (apply #'color-rgb-to-hex (append rgb '(2))))))))
-        (push `(fill . ,(or svg-color "#000000")) attrs))
+It handles the following face attributes:
+- :foreground, :background, :inverse-video
+- :family, :height, :weight, :slant, :width
+- :underline, :overline, :strike-through (including color and style)
 
-      ;; Font Weight
-      (when (memq weight '(bold semibold))
-        (push '(font-weight . "bold") attrs))
+It intentionally ignores attributes that don't map directly to
+CSS properties for a `<text>` element, such as `:box` and
+`:stipple`, as these would require generating separate SVG
+elements like `<rect>` or `<pattern>`."
+  (let-alist (propertized-text-to-svg--resolve-face face)
+    (let ((attrs '()) ; A list to hold direct presentation attributes.
+          (foreground (if .inverse-video .background .foreground)))
 
-      ;; Font Style
-      (when (memq slant '(italic oblique))
-        (push '(font-style . "italic") attrs))
+      ;; --- Direct Presentation Attributes ---
 
-      ;; Text Decoration
-      (when underline (push "underline" decorations))
-      (when overline (push "overline" decorations))
-      (when strike-through (push "line-through" decorations))
-      (when decorations
-        (push `(text-decoration . ,(string-join decorations " ")) attrs)))
-    (nreverse attrs)))
+      ;; -- Color --
+      (when foreground
+        (push `("fill" . ,(propertized-text-to-svg--color-name-to-rgb-hex foreground)) attrs))
+
+      ;; -- Font Family --
+      (when (stringp .family)
+        (push `("font-family" . ,.family) attrs))
+
+      ;; -- Font Size --
+      (cond
+       ((integerp .height)
+        (push `("font-size" . ,(format "%.1fpt" (/ (float .height) 10.0))) attrs))
+       ((floatp .height)
+        (push `("font-size" . ,(format "%.2fem" .height)) attrs)))
+
+      ;; -- Font Weight --
+      (let ((css-weight
+             (pcase .weight
+               ('thin "100")
+               ('(or extra-light ultra-light) "200")
+               ('light "300")
+               ('(or semi-light demi-light) "300")
+               ('(or normal medium regular book) "normal")
+               ('(or semi-bold demi-bold) "600")
+               ('bold "bold")
+               ('(or ultra-bold extra-bold) "800")
+               ('(or heavy black) "900")
+               ('ultra-heavy "900")
+               (_ nil))))
+        (when css-weight
+          (push `("font-weight" . ,(format "%s" css-weight)) attrs)))
+
+      ;; -- Font Slant --
+      (let ((css-slant (pcase .slant
+                         ('italic "italic")
+                         ('oblique "oblique")
+                         ('normal "normal")
+                         (_ nil))))
+        (when css-slant
+          (push `("font-style" . ,css-slant) attrs)))
+
+      ;; -- Font Width (Stretch) --
+      (let ((css-width (pcase .width
+                         ('ultra-condensed "ultra-condensed")
+                         ('extra-condensed "extra-condensed")
+                         ('condensed "condensed")
+                         ('semi-condensed "semi-condensed")
+                         ('normal "normal")
+                         ('semi-expanded "semi-expanded")
+                         ('expanded "expanded")
+                         ('extra-expanded "extra-expanded")
+                         ('ultra-expanded "ultra-expanded")
+                         (_ nil))))
+        (when css-width
+          (push `("font-stretch" . ,css-width) attrs)))
+
+      ;; -- Text Decoration (Simplified for Compatibility) --
+      (let ((decoration-lines '()))
+        (when .strike-through (push "line-through" decoration-lines))
+        (when .overline (push "overline" decoration-lines))
+        (when .underline (push "underline" decoration-lines))
+        (when decoration-lines
+          (push `("text-decoration" . ,(string-join decoration-lines " ")) attrs)))
+
+      (nreverse attrs))))
 
 
 (defun propertized-text-to-svg--to-tspans (p-string)
-  "Create a list of SVG `tspan` s-expressions from a propertized string."
+  "Create a list of SVG `tspan' s-expressions from a P-STRING."
   (when (> (length p-string) 0)
     (cl-loop for (beg . end) being the intervals of p-string
              for segment-text = (substring-no-properties p-string beg end)
@@ -143,7 +151,7 @@ handles single and multiple inheritance."
              collect `(tspan ,svg-attrs ,segment-text))))
 
 (defun propertized-text-to-svg--create-svg-element (body p-string)
-  "Wrap a BODY s-expression in a top-level `svg` element."
+  "Wrap a BODY s-expression in a top-level `svg' element using width of P-STRING."
   (let* ((width (+ (string-pixel-width p-string) propertized-text-to-svg-padding))
          (height (+ (window-font-height) (/ propertized-text-to-svg-padding 2)))
          (bg-name (face-attribute 'default :background nil 'default))
@@ -156,7 +164,7 @@ handles single and multiple inheritance."
           ,body)))
 
 (defun propertized-text-to-svg-data (p-string)
-  "Convert a propertized string P-STRING into an SVG s-expression."
+  "Convert a propertized string P-STRING into an svg s-expression."
   (let* ((tspans (propertized-text-to-svg--to-tspans p-string))
          (font-family (or (face-attribute 'default :family nil 'default) "monospace"))
          (font-spec (face-attribute 'default :font nil 'default))
@@ -174,7 +182,7 @@ handles single and multiple inheritance."
     (propertized-text-to-svg--create-svg-element text-element p-string)))
 
 (defun propertized-text-to-svg (p-string &optional buffer)
-  "Generate an SVG XML string from a propertized string P-STRING."
+  "Convert P-STRING to svg. Print to BUFFER if non-nil or temp buffer otherwise."
   (if buffer
       (with-current-buffer buffer
         (svg-print (propertized-text-to-svg-data p-string)))

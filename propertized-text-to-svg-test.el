@@ -14,51 +14,84 @@
 (require 'color)
 (require 'cl-lib)
 
-(defface test-face-red '((t (:foreground "red"))) "A test face with red foreground.")
-(defface test-face-blue '((t (:foreground "blue"))) "A test face with blue foreground.")
-(defface test-face-no-fg '((t (:background "yellow"))) "A test face with no foreground color.")
-(defface test-face-dark-green '((t (:foreground "dark green"))) "A test face with a space in the color name.")
-(defface test-face-orange
-  '((t (:foreground "orange" :weight bold)))
-  "Orange foreground and bold.")
-(defface test-face-light-green
-  '((t (:foreground "light green" :slant italic :underline t)))
-  "Light green, italic, and underlined.")
+;; --- Test Faces ---
+
+(defface test-face-red
+  '((t (:foreground "red")))
+  "A test face with red foreground.")
+
+(defface test-face-blue
+  '((t (:foreground "blue")))
+  "A test face with blue foreground.")
+
+(defface test-face-dark-green
+  '((t (:foreground "dark green")))
+  "A test face with a space in the color name.")
+
+(defface test-face-no-fg
+  '((t (:background "yellow")))
+  "A test face with no foreground color.")
+
+(defface test-face-bold
+  '((t (:weight bold)))
+  "A bold test face.")
+
+(defface test-face-italic-underline
+  '((t (:slant italic :underline t)))
+  "An italic and underlined test face.")
+
+(defface test-face-orange-bold
+  '((t :inherit test-face-bold :foreground "orange"))
+  "Orange foreground that inherits bold.")
+
+
+(defun ptts-test--get-default-fg-hex ()
+  "Get the current theme's default foreground color as a 6-digit hex string."
+  (let* ((color-name (face-attribute 'default :foreground))
+         (rgb (color-name-to-rgb color-name)))
+    (apply #'color-rgb-to-hex (append rgb '(2)))))
 
 
 (ert-deftest ptts-basic-propertized-string-test ()
   "Test a standard string with multiple faces."
-  (let* ((p-string (concat (propertize "Hello" 'face 'test-face-orange)
+  (let* ((p-string (concat (propertize "Hello" 'face 'test-face-orange-bold)
                            " World"
-                           (propertize "!" 'face 'test-face-light-green)))
+                           (propertize "!" 'face 'test-face-italic-underline)))
          (svg-data (propertized-text-to-svg-data p-string))
-         (tspans (cddr (cadddr svg-data)))
-         (default-color-hex
-          (apply #'color-rgb-to-hex (append (color-name-to-rgb (face-attribute 'default :foreground)) '(2)))))
+         (tspans (cddr (cadddr svg-data))))
     (should (equal tspans
                    `((tspan ((fill . "#ffa500") (font-weight . "bold")) "Hello")
-                     (tspan ((fill . ,default-color-hex)) " World")
-                     (tspan ((fill . "#90ee90") (font-style . "italic") (text-decoration . "underline")) "!"))))))
+                     (tspan ((fill . ,(ptts-test--get-default-fg-hex))) " World")
+                     (tspan ((fill . ,(ptts-test--get-default-fg-hex)) (font-style . "italic") (text-decoration . "underline")) "!"))))))
+
+(ert-deftest ptts-complex-inheritance-test ()
+  "Test complex face properties like lists and anonymous faces."
+  (let* ((p-string (concat
+                    ;; A simple list of faces
+                    (propertize "RedBold" 'face '(test-face-red test-face-bold))
+                    ;; An anonymous face inheriting and overriding
+                    (propertize "BlueBold" 'face '(:inherit test-face-blue :weight bold))))
+         (svg-data (propertized-text-to-svg-data p-string))
+         (tspans (cddr (cadddr svg-data))))
+    (should (equal tspans
+                   `((tspan ((fill . "#ff0000") (font-weight . "bold")) "RedBold")
+                     (tspan ((fill . "#0000ff") (font-weight . "bold")) "BlueBold"))))))
 
 (ert-deftest ptts-fully-unpropertized-string-test ()
   "Test a string that has no properties at all."
   (let* ((p-string "Just plain text")
          (svg-data (propertized-text-to-svg-data p-string))
-         (tspans (cddr (cadddr svg-data)))
-         (default-color-hex
-          (apply #'color-rgb-to-hex (append (color-name-to-rgb (face-attribute 'default :foreground)) '(2)))))
+         (tspans (cddr (cadddr svg-data))))
     (should (equal tspans
-                   `((tspan ((fill . ,default-color-hex)) "Just plain text"))))))
+                   `((tspan ((fill . ,(ptts-test--get-default-fg-hex))) "Just plain text"))))))
 
 (ert-deftest ptts-face-with-no-foreground-test ()
   "Test that a face missing a :foreground attribute falls back to the default."
   (let* ((p-string (propertize "Test" 'face 'test-face-no-fg))
          (svg-data (propertized-text-to-svg-data p-string))
-         (tspans (cddr (cadddr svg-data)))
-         (default-color-hex
-          (apply #'color-rgb-to-hex (append (color-name-to-rgb (face-attribute 'default :foreground)) '(2)))))
+         (tspans (cddr (cadddr svg-data))))
     (should (equal tspans
-                   `((tspan ((fill . ,default-color-hex)) "Test"))))))
+                   `((tspan ((fill . ,(ptts-test--get-default-fg-hex))) "Test"))))))
 
 (ert-deftest ptts-empty-string-test ()
   "Test that an empty string produces an empty list of tspans."

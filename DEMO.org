@@ -1,0 +1,73 @@
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/the-quick-brown-fox.svg
+(propertized-text-to-svg
+ (concat (propertize "The" 'face '(:foreground "black"))
+         " "
+         (propertize "quick" 'face '(:foreground "brown" :weight bold))
+         " "
+         (propertize "brown" 'face '(:foreground "brown" :slant italic))
+         " "
+         (propertize "fox" 'face '(:foreground "orange red" :underline t))
+         " "
+         (propertize "jumps over the" 'face '(:foreground "black"))
+         " "
+         (propertize "lazy" 'face '(:foreground "grey" :strike-through t))
+         " "
+         (propertize "dog." 'face '(:foreground "black" :weight heavy))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/the-quick-brown-fox.svg]]
+
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/normal-bold-italic.svg
+(propertized-text-to-svg
+ (concat (propertize "Normal " 'face '(:weight normal :slant normal))
+         (propertize "Bold " 'face '(:weight bold))
+         (propertize "Italic " 'face '(:slant italic))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/normal-bold-italic.svg]]
+
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/height.svg
+(propertized-text-to-svg
+ (concat (propertize "Serif 12pt" 'face '(:family "serif" :height 120))
+         " "
+         (propertize "Monospace 1.2x" 'face '(:family "monospace" :height 1.2))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/height.svg]]
+
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/decorations.svg
+(propertized-text-to-svg
+ (concat (propertize "overline" 'face '(:overline t))
+         " "
+         (propertize "strike-through" 'face '(:strike-through t))
+         " "
+         (propertize "underline" 'face '(:underline t))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/decorations.svg]]
+
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/width.svg
+(propertized-text-to-svg
+ (concat (propertize "Condensed " 'face '(:width condensed))
+         (propertize "Normal " 'face '(:width normal))
+         (propertize "Expanded" 'face '(:width expanded))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/width.svg]]
+
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/weight.svg
+(propertized-text-to-svg
+ (concat (propertize "Thin " 'face '(:weight thin))
+         (propertize "Light " 'face '(:weight light))
+         (propertize "Regular " 'face '(:weight regular))
+         (propertize "Semi-Bold " 'face '(:weight semi-bold))
+         (propertize "Heavy" 'face '(:weight heavy))))
+#+END_SRC
+
+#+RESULTS:
+[[file:./assets/weight.svg]]

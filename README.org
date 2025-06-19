@@ -30,27 +30,14 @@ styling.
 * Examples & Usage
 
 #+BEGIN_SRC emacs-lisp :results none
-;; Ensure the package is loaded. Adjust path if necessary.
 (load-file "propertized-text-to-svg.el")
-
-;; Define custom faces for the examples.
-(defface ptts-example-red '((t (:foreground "firebrick"))) "Red face for examples.")
-(defface ptts-example-green '((t (:foreground "dark green"))) "Green face for examples.")
-(defface ptts-example-blue '((t (:foreground "steel blue"))) "Blue face for examples.")
-(defface ptts-example-no-fg '((t (:background "light gray"))) "Face with no foreground.")
-
-;; Create the assets directory.
 (make-directory "./assets" t)
 #+END_SRC
 
-*1. Basic Two-Color String*
-
-This shows a simple string with two distinct faces applied.
-
 #+BEGIN_SRC emacs-lisp :results file :file ./assets/basic-example.svg
 (propertized-text-to-svg
- (concat (propertize "Hello, " 'face 'ptts-example-red)
-         (propertize "World!" 'face 'ptts-example-blue)))
+ (concat (propertize "Hello, " 'face '(:foreground "orange red"))
+         (propertize "World!" 'face '(:foreground "tomato"))))
 #+END_SRC
 
 #+RESULTS:
@@ -63,9 +50,9 @@ default foreground color of your current theme.
 
 #+BEGIN_SRC emacs-lisp :results value file :file ./assets/unpropertized-segment.svg
 (propertized-text-to-svg
- (concat (propertize "Styled, " 'face 'ptts-example-green)
+ (concat (propertize "Styled, " 'face '(:foreground "chartreuse"))
          "Default, "
-         (propertize "Styled." 'face 'ptts-example-red)))
+         (propertize "Styled." 'face '(:foreground "magenta"))))
 #+END_SRC
 
 #+RESULTS:
