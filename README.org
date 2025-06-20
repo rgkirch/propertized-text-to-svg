@@ -40,7 +40,6 @@ styling.
          (propertize "World!" 'face '(:foreground "tomato"))))
 #+END_SRC
 
-#+RESULTS:
 [[file:./assets/basic-example.svg]]
 
 *2. String with Unpropertized Segment*
@@ -55,7 +54,6 @@ default foreground color of your current theme.
          (propertize "Styled." 'face '(:foreground "magenta"))))
 #+END_SRC
 
-#+RESULTS:
 [[file:./assets/unpropertized-segment.svg]]
 
 *3. Simulating a Git Diff*
@@ -68,7 +66,6 @@ Here, we use standard faces like =error= and =success= to create a diff-like out
          (propertize " added +25" 'face 'success)))
 #+END_SRC
 
-#+RESULTS:
 [[file:./assets/diff-example.svg]]
 
 *4. Face Without a Foreground Color*
@@ -80,7 +77,6 @@ This demonstrates the fallback mechanism when a face is applied but lacks a =:fo
  (propertize "Fallback Color" 'face 'ptts-example-no-fg))
 #+END_SRC
 
-#+RESULTS:
 [[file:./assets/no-foreground-fallback.svg]]
 
 *5. Plain String*
@@ -91,7 +87,6 @@ A completely unpropertized string is rendered using the default color.
 (propertized-text-to-svg "Just plain text.")
 #+END_SRC
 
-#+RESULTS:
 [[file:./assets/plain-string.svg]]
 
 * See [[https://github.com/rgkirch/my-emacs-packages][my other emacs packages]]
