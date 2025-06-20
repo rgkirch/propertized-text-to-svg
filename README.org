@@ -1,93 +1,54 @@
-#+TITLE: Propertized Text to SVG
-#+AUTHOR: Richie Kirchofer
-
-* TL;DR
-
 This package provides functions to convert an Emacs string with text properties
 (i.e. faces) into a standalone SVG image, preserving the original colors and
 styling.
 
-* Installation
-
-1. Clone this repository or download =propertized-text-to-svg.el=.
-2. Place the file in a directory that is part of your Emacs =load-path=.
-3. Add the following to your Emacs configuration:
-
-   #+BEGIN_SRC emacs-lisp :results none
-   (require 'propertized-text-to-svg)
-   #+END_SRC
-
-* Features
-
-- *Convert Propertized Strings*: Turns any string with a =face= text property into an SVG.
-- *Preserve Colors*: Accurately captures the foreground color from the applied face.
-- *Fallback Gracefully*: If a face has no foreground color or if a segment of text
-  is unpropertized, it correctly falls back to the theme's default text color.
-- *Customizable*: The underlying SVG data structure is exposed, allowing for
-  further manipulation before rendering.
-- *Simple API*: Generate an SVG with a single function call: =(propertized-text-to-svg "...")=.
-
-* Examples & Usage
-
-#+BEGIN_SRC emacs-lisp :results none
-(load-file "propertized-text-to-svg.el")
-(make-directory "./assets" t)
-#+END_SRC
-
-#+BEGIN_SRC emacs-lisp :results file :file ./assets/basic-example.svg
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/the-quick-brown-fox.svg
 (propertized-text-to-svg
- (concat (propertize "Hello, " 'face '(:foreground "orange red"))
-         (propertize "World!" 'face '(:foreground "tomato"))))
+ (concat (propertize "The" 'face '(:foreground "black"))
+         " "
+         (propertize "quick" 'face '(:foreground "brown" :weight bold))
+         " "
+         (propertize "brown" 'face '(:foreground "brown" :slant italic))
+         " "
+         (propertize "fox" 'face '(:foreground "orange red" :underline t))
+         " "
+         (propertize "jumps over the" 'face '(:foreground "black"))
+         " "
+         (propertize "lazy" 'face '(:foreground "grey" :strike-through t))
+         " "
+         (propertize "dog." 'face '(:foreground "black" :weight heavy))))
 #+END_SRC
 
-[[file:./assets/basic-example.svg]]
+[[file:./assets/the-quick-brown-fox.svg]]
 
-*2. String with Unpropertized Segment*
-
-This example includes a segment with no face property, which falls back to the
-default foreground color of your current theme.
-
-#+BEGIN_SRC emacs-lisp :results value file :file ./assets/unpropertized-segment.svg
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/normal-bold-italic.svg
 (propertized-text-to-svg
- (concat (propertize "Styled, " 'face '(:foreground "chartreuse"))
-         "Default, "
-         (propertize "Styled." 'face '(:foreground "magenta"))))
+ (concat (propertize "Normal " 'face '(:weight normal :slant normal))
+         (propertize "Bold " 'face '(:weight bold))
+         (propertize "Italic " 'face '(:slant italic))))
 #+END_SRC
 
-[[file:./assets/unpropertized-segment.svg]]
+[[file:./assets/normal-bold-italic.svg]]
 
-*3. Simulating a Git Diff*
-
-Here, we use standard faces like =error= and =success= to create a diff-like output.
-
-#+BEGIN_SRC emacs-lisp :results value file :file ./assets/diff-example.svg
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/height.svg
 (propertized-text-to-svg
- (concat (propertize "removed -10" 'face 'error)
-         (propertize " added +25" 'face 'success)))
+ (concat (propertize "Serif 12pt" 'face '(:family "serif" :height 120))
+         " "
+         (propertize "Monospace 1.2x" 'face '(:family "monospace" :height 1.2))))
 #+END_SRC
 
-[[file:./assets/diff-example.svg]]
+[[file:./assets/height.svg]]
 
-*4. Face Without a Foreground Color*
-
-This demonstrates the fallback mechanism when a face is applied but lacks a =:foreground= attribute.
-
-#+BEGIN_SRC emacs-lisp :results value file :file ./assets/no-foreground-fallback.svg
+#+BEGIN_SRC emacs-lisp :results file :file ./assets/decorations.svg
 (propertized-text-to-svg
- (propertize "Fallback Color" 'face 'ptts-example-no-fg))
+ (concat (propertize "overline" 'face '(:overline t))
+         " "
+         (propertize "strike-through" 'face '(:strike-through t))
+         " "
+         (propertize "underline" 'face '(:underline t))))
 #+END_SRC
 
-[[file:./assets/no-foreground-fallback.svg]]
-
-*5. Plain String*
-
-A completely unpropertized string is rendered using the default color.
-
-#+BEGIN_src emacs-lisp :results value file :file ./assets/plain-string.svg
-(propertized-text-to-svg "Just plain text.")
-#+END_SRC
-
-[[file:./assets/plain-string.svg]]
+[[file:./assets/decorations.svg]]
 
 * See [[https://github.com/rgkirch/my-emacs-packages][my other emacs packages]]
 * License
@@ -108,4 +69,3 @@ details.
 
 You should have received a copy of the GNU General Public License along with
 this program. If not, see <https://www.gnu.org/licenses/>.
-
